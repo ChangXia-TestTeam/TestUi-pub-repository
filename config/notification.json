@@ -1,0 +1,14 @@
+{
+  "dingtalk": {
+    "webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=【替换为你的 access_token】",
+    "secret": "【替换为你的加签密钥，机器人开启加签时必填；未开启则填空字符串】",
+    "mention_mobiles": ["15071113629", "13900139000"],
+    "at_all": false
+  },
+  "threshold": {
+    "pass_rate_warning": 95,
+    "p0_fail_immediate": true
+  },
+  "project_name": "数据平台",
+  "env": "测试环境"
+}

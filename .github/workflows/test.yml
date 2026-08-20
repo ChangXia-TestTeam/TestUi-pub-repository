@@ -1,0 +1,50 @@
+name: UI Automation Test
+
+# 仿 API 框架 .github/workflows/test.yml
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ui-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run UI Test Pipeline
+        env:
+          AUTH_TOKEN: ${{ secrets.TEST_AUTH_TOKEN }}
+          TEST_USERNAME: ${{ secrets.TEST_AUTH_USERNAME }}
+          TEST_PASSWORD: ${{ secrets.TEST_AUTH_PASSWORD }}
+        run: python scripts/run_pipeline.py
+
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-allure-report
+          path: reports/allure-report
+          retention-days: 30
+
+      - name: Upload Excel Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-excel-results
+          path: UI_output_files
+          retention-days: 30

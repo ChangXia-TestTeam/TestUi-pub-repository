@@ -1,0 +1,73 @@
+# ============================================================
+# UI 自动化测试配置 - 仿 API 框架风格
+# 路径: config/config.yaml    ⚠️ 此项必须修改
+# ============================================================
+project_name: "数据平台"
+
+test_env:
+  base_url: "https://hrplatform.tgeem.cn"   # ← 改成你的测试环境地址
+
+# 浏览器配置（Playwright）
+browser:
+  type: "chromium"        # chromium | firefox | webkit
+  headless: true         # CI 建议 true；本地调试可改 false
+  slow_mo: 0             # 每步延迟(ms)，调试可设 100
+  viewport:
+    width: 1920
+    height: 1080
+  locale: "zh-CN"
+  timezone: "Asia/Shanghai"
+  record_video: false    # 是否录制视频（失败用例自动录制）
+  trace: "on-first-retry" # trace 策略：off | on | retain-on-failure | on-first-retry
+
+# SSO 登录（UI 版 - 通过浏览器登录获取会话）
+auth:
+  username: "YLLL"                              # ← 改成 SSO 登录账号
+  password: "XeXj5Z#gPsKh"                      # ← 改成 SSO 登录密码
+  login_url: "/login"                          # ← 改成登录页路径
+  login_api: "/api/sso/auth/login"             # ← 改成登录接口路径（用于快速取 Token 跳过 UI 登录）
+  storage_state: "config/.auth_state.json"      # 登录态持久化文件
+
+# 超时配置
+timeout:
+  page_load: 30          # 页面加载超时(秒)
+  element: 10            # 元素查找超时(秒)
+  navigation: 30         # 导航超时(秒)
+  request: 30
+  connect: 10
+
+# 重试配置
+retry:
+  max_retries: 3
+  retry_delay: 1
+
+# ============================================================
+# AI 引擎配置 - AI 驱动 UI 自动化核心
+# ============================================================
+ai:
+  enabled: true            # 是否启用 AI 生成阶段（关闭则用已有用例跑）
+  self_healing: true       # 定位失败时是否调用 AI 自愈（Midscene 风格）
+  mode: "trae"             # trae（对话接管，零配置） | api（HTTP 直调，CI 无人值守）
+  # ---- mode=api 时配置 ----
+  provider: "openai"       # openai | azure | 自建（OpenAI 兼容接口）
+  openai_base_url: ""      # ← 如 https://api.openai.com/v1 或自建网关地址
+  api_key: ""              # ← API Key（建议用环境变量 AI_API_KEY 覆盖）
+  model: "gpt-4o"          # 模型名（需支持 vision 才能识别截图）
+  temperature: 0.2         # 代码生成用低温度
+  timeout: 120             # LLM 调用超时(秒)
+
+# 输入端配置（PRD / 蓝湖 / 原型截图）
+input:
+  # 输入方式：prd | lanhu | screenshot | mixed
+  mode: "mixed"
+  prd_dir: "UI_input_files/prd"          # PRD 文档目录（docx/pdf）
+  screenshot_dir: "UI_input_files/screenshots"  # 原型截图目录
+  lanhu_dir: "UI_input_files/lanhu"      # 蓝湖导出文件目录
+  lanhu_base_url: ""                      # 蓝湖分享链接（留空则读本地导出）
+
+# 截图配置
+screenshot:
+  on_failure: true       # 失败自动截图
+  on_step: false         # 每步截图（开销大）
+  full_page: true        # 整页截图
+  dir: "reports/screenshots"

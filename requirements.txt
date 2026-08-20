@@ -1,0 +1,40 @@
+# UI 自动化测试依赖 - Python + Playwright + Pytest + Allure + POM
+# ============================================================
+# 安装后需执行：python -m playwright install chromium
+# ============================================================
+
+# 浏览器自动化
+playwright>=1.40.0
+
+# 测试框架
+pytest>=7.4.0
+pytest-playwright>=0.4.3
+pytest-html>=4.1.0
+pytest-xdist>=3.5.0          # 并行执行
+pytest-rerunfailures>=12.0   # 失败重试
+
+# 报告
+allure-pytest>=2.13.0
+allure-python-commons>=2.13.0
+
+# 配置 & 数据
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Excel 输出（按模板填充）
+openpyxl>=3.1.2
+xlsxwriter>=3.1.9
+
+# 多输入端解析
+python-docx>=1.1.0           # PRD docx 解析
+pdfplumber>=0.10.0           # PRD pdf 解析
+Pillow>=10.0.0               # 截图处理
+
+# HTTP（快速取 Token 跳过 UI 登录）
+requests>=2.31.0
+
+# 钉钉推送
+requests>=2.31.0
+
+# 文档生成
+python-docx>=1.1.0
