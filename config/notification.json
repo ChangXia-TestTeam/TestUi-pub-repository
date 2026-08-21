@@ -1,7 +1,7 @@
 {
   "dingtalk": {
-    "webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=【替换为你的 access_token】",
-    "secret": "【替换为你的加签密钥，机器人开启加签时必填；未开启则填空字符串】",
+    "webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=80f04fdb8b086aca086d2259b21556c54552d0dc119fb1dade399dd11c63bb4b",
+    "secret": "SECfe30340ef35888cafb0ffeac85115ee1082d8ebbf3d58f924190de2f4e7e00a9",
     "mention_mobiles": ["15071113629", "13900139000"],
     "at_all": false
   },

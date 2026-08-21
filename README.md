@@ -184,6 +184,9 @@ pytest tests/ -n auto                         # 并行
 ## 七、报告输出
 
 - **Allure HTML**：`reports/allure-report/index.html`
+  - ⚠️ Allure 是 SPA，**必须通过 HTTP 服务器访问**，直接 `file://` 打开会卡在 Loading
+  - 框架会自动在 `http://localhost:8088` 启动 HTTP 服务器托管报告
+  - 手动启动：`python -m http.server 8088 --directory reports/allure-report`
 - **Excel 结果**：`UI_output_files/test_ui_results/`（PASS 绿底 / FAIL 红底加粗）
 - **Bug 清单**：`UI_output_files/bug_list/`（标题 `【{模块}】{用例名} UI → {错误分类} {错误消息}`，可直接导入 TAPD）
 - **失败截图**：`reports/screenshots/` + Allure 附件

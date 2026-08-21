@@ -29,7 +29,7 @@ def browser_mgr_session():
 
 
 @pytest.fixture(scope="function")
-def browser_mgr(browser_mgr_session):
+def browser_mgr(browser_mgr_session, request):
     """每个测试函数一个独立 context（隔离数据），复用 session 浏览器。"""
     bm = browser_mgr_session
     # 新建独立 context + page（避免测试间 cookie/localStorage 串扰）
@@ -46,6 +46,19 @@ def browser_mgr(browser_mgr_session):
     bm._page = page
     bm._context = new_ctx
     yield bm
+
+    # 调试模式：headless=false 且用例失败时保持浏览器打开，方便排查
+    headless = bm.cfg.get("headless", True)
+    rep = request.node.rep_call if hasattr(request.node, 'rep_call') else None
+    failed = rep and rep.failed
+    if not headless and failed:
+        print(f"\n[conftest] 用例失败，浏览器保持打开，按 Ctrl+C 或关闭窗口继续...")
+        try:
+            # 等待用户手动关闭或超时 60s
+            page.wait_for_timeout(60000)
+        except Exception:
+            pass
+
     try:
         page.close()
     except Exception:
@@ -63,8 +76,15 @@ def page(browser_mgr):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def logged_in(browser_mgr):
-    """自动登录：storage_state > 环境变量 > UI 登录。"""
+def logged_in(browser_mgr, request):
+    """
+    自动登录：storage_state > 环境变量 > UI 登录。
+    登录模块的用例（test_login_*）不需要自动登录，由用例自己控制登录流程。
+    """
+    nodeid = request.node.nodeid
+    if "test_login" in nodeid:
+        print(f"[conftest] 登录模块用例，跳过自动登录: {nodeid}")
+        return
     info = auth.get_or_login(browser_mgr)
     print(f"[conftest] 登录态来源: {info.get('source')}")
 

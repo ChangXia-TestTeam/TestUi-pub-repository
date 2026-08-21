@@ -10,8 +10,8 @@ test_env:
 # 浏览器配置（Playwright）
 browser:
   type: "chromium"        # chromium | firefox | webkit
-  headless: true         # CI 建议 true；本地调试可改 false
-  slow_mo: 0             # 每步延迟(ms)，调试可设 100
+  headless: false        # CI 建议 true；本地调试改 false 可见浏览器操作
+  slow_mo: 100            # 每步延迟(ms)，方便观察操作过程，调试可设置100，CI执行时设置为0
   viewport:
     width: 1920
     height: 1080
@@ -68,6 +68,6 @@ input:
 # 截图配置
 screenshot:
   on_failure: true       # 失败自动截图
-  on_step: false         # 每步截图（开销大）
+  on_step: true          # 每步操作自动截图（生成详细报告）
   full_page: true        # 整页截图
   dir: "reports/screenshots"

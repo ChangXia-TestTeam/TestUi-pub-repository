@@ -1,15 +1,66 @@
 name: UI Automation Test
 
-# 仿 API 框架 .github/workflows/test.yml
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      suite:
+        description: '测试套件'
+        required: true
+        default: 'overview'
+        type: choice
+        options:
+          - overview
+          - full
+      marker:
+        description: 'pytest marker 过滤（可选）'
+        required: false
+        default: ''
 
 jobs:
-  ui-test:
+  # ============================================================
+  # 概览页快速测试（每次 push 都会跑，~1min）
+  # ============================================================
+  overview-test:
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.suite == 'overview'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run Overview Tests
+        env:
+          TEST_USERNAME: ${{ secrets.TEST_AUTH_USERNAME }}
+          TEST_PASSWORD: ${{ secrets.TEST_AUTH_PASSWORD }}
+        run: python scripts/run_overview_tests.py --ci -n 2 --alluredir=reports/allure-overview
+
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: overview-allure-report
+          path: reports/allure-overview
+          retention-days: 30
+
+  # ============================================================
+  # 全量 Pipeline（workflow_dispatch 触发，~10min）
+  # ============================================================
+  full-pipeline:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.suite == 'full'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -62,7 +62,13 @@ def auth_config() -> dict:
 
 
 def browser_config() -> dict:
-    return get("browser", {})
+    cfg = get("browser", {})
+    headless_env = os.environ.get("HEADLESS", "").strip().lower()
+    if headless_env in ("1", "true", "yes", "on"):
+        cfg["headless"] = True
+    elif headless_env in ("0", "false", "no", "off"):
+        cfg["headless"] = False
+    return cfg
 
 
 def timeout_config() -> dict:

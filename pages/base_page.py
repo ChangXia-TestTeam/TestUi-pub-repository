@@ -3,6 +3,7 @@ POM 基类 - Page Object Model 设计模式
 路径: pages/base_page.py
 封装 Playwright 通用操作（导航/点击/输入/断言/截图/等待），所有 Page 类继承本类。
 内置 AI 自愈钩子：定位失败时自动调用 ai/self_healing 寻找替代定位并回填。
+内置步骤截图：每个操作自动截图并附加到 Allure，生成详细可视化报告。
 """
 from __future__ import annotations
 
@@ -16,6 +17,8 @@ from utils import config, screenshot as ss_mod
 
 # 自愈开关（读 config.ai.self_healing）
 _SELF_HEAL_ENABLED = None
+# 步骤截图开关（读 config.screenshot.on_step）
+_STEP_SHOT_ENABLED = None
 
 
 def _self_heal_enabled() -> bool:
@@ -23,6 +26,23 @@ def _self_heal_enabled() -> bool:
     if _SELF_HEAL_ENABLED is None:
         _SELF_HEAL_ENABLED = bool(config.get("ai.self_healing", True))
     return _SELF_HEAL_ENABLED
+
+
+def _step_shot_enabled() -> bool:
+    global _STEP_SHOT_ENABLED
+    if _STEP_SHOT_ENABLED is None:
+        _STEP_SHOT_ENABLED = bool(config.screenshot_config().get("on_step", True))
+    return _STEP_SHOT_ENABLED
+
+
+def _auto_shot(page, label: str):
+    """自动步骤截图：每个操作后截图附加到 Allure。"""
+    if not _step_shot_enabled():
+        return
+    try:
+        ss_mod.take_screenshot(page, f"step: {label}", full_page=False)
+    except Exception:
+        pass
 
 
 class BasePage:
@@ -43,6 +63,7 @@ class BasePage:
             from urllib.parse import urlencode
             url += "?" + urlencode(qs)
         self.page.goto(url)
+        _auto_shot(self.page, f"goto({url})")
         return self
 
     # ---- 元素查找 ----
@@ -80,6 +101,7 @@ class BasePage:
                 self.locator(healed).first.click(timeout=to)
             else:
                 raise
+        _auto_shot(self.page, f"click({selector})")
         return self
 
     @allure.step("输入 '{text}' 到 {selector}")
@@ -100,6 +122,7 @@ class BasePage:
                 loc.fill(text)
             else:
                 raise
+        _auto_shot(self.page, f"fill({selector})")
         return self
 
     # ---- AI 自愈钩子 ----

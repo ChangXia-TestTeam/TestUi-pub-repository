@@ -139,7 +139,7 @@ def stage4_execute():
         "-v", "--tb=short",
         "--alluredir", str(ROOT / "reports" / "allure-results"),
         "--clean-alluredir",
-        "-n", "auto",
+        "-n", "2",
     ]
     if config.get("retry.max_retries", 1) > 1:
         cmd += ["--reruns", str(config.get("retry.max_retries"))]
@@ -164,22 +164,53 @@ def stage5_results(stats: dict):
 
 
 # ============================================================
-# [6] 生成报告（Allure HTML）
+# [6] 生成报告（Allure HTML + 自动启动 HTTP 服务器）
 # ============================================================
 def stage6_report():
     print("[6/8] 📈 生成 Allure HTML 报告...")
     out_dir = ROOT / "reports" / "allure-results"
     html_dir = ROOT / "reports" / "allure-report"
+
+    # Windows 下 allure 是 .bat 文件，subprocess 默认不搜索 .bat 扩展名
+    # 使用 shutil.which 解析完整路径后直接调用，避免 shell=True 导致 Java classpath 丢失
+    import shutil
+    allure_cmd = shutil.which("allure") or shutil.which("allure.bat") or "allure"
+
     try:
-        subprocess.run([
-            "allure", "generate", str(out_dir),
-            "-o", str(html_dir), "--clean",
-        ], check=True)
-        print(f"[6/8] ✅ {html_dir / 'index.html'}")
-        return str(html_dir / "index.html")
+        subprocess.run(
+            [allure_cmd, "generate", str(out_dir),
+             "-o", str(html_dir), "--clean"],
+            check=True,
+        )
     except Exception as e:
         print(f"[6/8] ⚠️ Allure 生成失败（可能未安装 allure 命令行）: {e}")
         return ""
+
+    # Allure 报告是 SPA，必须通过 HTTP 服务器托管，直接 file:// 打开会卡在 Loading
+    report_port = 8088
+    url = f"http://localhost:{report_port}"
+    try:
+        # 停掉可能残留的旧服务
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("localhost", report_port)) == 0:
+                print(f"[6/8]   端口 {report_port} 已被占用，尝试释放...")
+                # 不强制杀进程，给用户提示
+        # 启动新服务器（后台）
+        import subprocess as sp
+        sp.Popen(
+            [sys.executable, "-m", "http.server", str(report_port), "--directory", str(html_dir)],
+            cwd=str(ROOT),
+            creationflags=0x08000000,  # CREATE_NO_WINDOW (Windows)
+        )
+        print(f"[6/8] ✅ 报告已生成: {html_dir}")
+        print(f"[6/8] 🌐 请通过 HTTP 访问（不要用 file:// 直接打开）:")
+        print(f"[6/8]    {url}")
+        return url
+    except Exception as e:
+        print(f"[6/8] ⚠️ HTTP 服务器启动失败: {e}")
+        print(f"[6/8]    手动启动: python -m http.server {report_port} --directory {html_dir}")
+        return str(html_dir / "index.html")
 
 
 # ============================================================
@@ -210,7 +241,10 @@ def stage8_cicd(stats: dict):
         print(f"[8/8]    工作流: {wf}")
         print(f"[8/8]    触发条件: push 到 main/develop / PR 到 main / workflow_dispatch")
         print(f"[8/8]    上传产物: Allure 报告 + Excel 结果（保留 30 天）")
-    passed = stats.get("failed", 0) == 0
+    # Pipeline 通过条件：无 failed 且无 broken（skipped 不影响）
+    failed = stats.get("failed", 0)
+    broken = stats.get("broken", 0)
+    passed = (failed == 0 and broken == 0)
     print(f"[8/8] {'✅ Pipeline 通过' if passed else '❌ Pipeline 失败（CI 将标红 + 钉钉告警）'}")
     return {"passed": passed}
 
@@ -219,9 +253,13 @@ def stage8_cicd(stats: dict):
 # 统计（执行后从 allure-results 汇总）
 # ============================================================
 def collect_stats() -> dict:
+    """
+    从 allure-results 汇总用例统计。
+    处理 rerun 产生的重复记录：相同用例按 (name, fullName) 去重，
+    最终状态以最后一条记录为准（rerun 成功则计为 passed）。
+    """
     results_dir = ROOT / "reports" / "allure-results"
-    total = passed = failed = broken = skipped = 0
-    failed_cases = []
+    case_map: dict[str, dict] = {}  # key: (name|fullName) → 最新一条记录
     if results_dir.exists():
         for f in results_dir.glob("*.json"):
             try:
@@ -229,22 +267,39 @@ def collect_stats() -> dict:
             except Exception:
                 continue
             status = d.get("status")
-            name = d.get("name", "")
-            full = d.get("fullName", "")
-            if status in ("passed", "failed", "broken", "skipped"):
-                total += 1
-            if status == "passed":
-                passed += 1
-            elif status == "failed":
-                failed += 1
-                failed_cases.append({
-                    "name": name, "full": full,
-                    "status_message": _extract_status_msg(d),
-                })
-            elif status == "broken":
-                broken += 1
-            elif status == "skipped":
-                skipped += 1
+            if status not in ("passed", "failed", "broken", "skipped"):
+                continue
+            # 用例唯一键：name + fullName 组合，避免重名误合并
+            key = f"{d.get('name', '')}|{d.get('fullName', '')}"
+            # Allure 时间戳大的为最新结果（rerun 后的）
+            ts = d.get("start", 0)
+            if key not in case_map or ts >= case_map[key].get("_ts", 0):
+                d["_ts"] = ts
+                case_map[key] = d
+
+    total = passed = failed = broken = skipped = 0
+    failed_cases = []
+    for d in case_map.values():
+        status = d.get("status")
+        name = d.get("name", "")
+        full = d.get("fullName", "")
+        total += 1
+        if status == "passed":
+            passed += 1
+        elif status == "failed":
+            failed += 1
+            failed_cases.append({
+                "name": name, "full": full,
+                "status_message": _extract_status_msg(d),
+            })
+        elif status == "broken":
+            broken += 1
+            failed_cases.append({
+                "name": name, "full": full,
+                "status_message": _extract_status_msg(d),
+            })
+        elif status == "skipped":
+            skipped += 1
     pass_rate = (passed / total * 100) if total else 0
     print(f"[stats] 通过率={pass_rate:.1f}% (total={total} pass={passed} fail={failed} broken={broken} skip={skipped})")
     return {
@@ -294,7 +349,10 @@ def main():
     stage8_cicd(stats)
 
     print(f"\n✅ Pipeline 完成，耗时 {time.time() - t0:.1f}s")
-    return 0 if stats.get("failed", 0) == 0 else 1
+    # Pipeline 通过条件：无 failed 且无 broken
+    failed = stats.get("failed", 0)
+    broken = stats.get("broken", 0)
+    return 0 if (failed == 0 and broken == 0) else 1
 
 
 if __name__ == "__main__":

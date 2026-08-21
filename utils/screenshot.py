@@ -24,7 +24,13 @@ def take_screenshot(page: Page, name: str, full_page: bool = True) -> str:
     ss_dir.mkdir(parents=True, exist_ok=True)
 
     ts = time.strftime("%Y%m%d_%H%M%S")
-    safe_name = name.replace(" ", "_").replace("/", "_")
+    # 清理文件名中的非法字符（Windows 不允许 : * ? " < > |）
+    safe_name = name.replace(" ", "_")
+    for ch in [":", "*", "?", '"', "<", ">", "|", "/", "\\", ","]:
+        safe_name = safe_name.replace(ch, "_")
+    # 限制文件名长度
+    if len(safe_name) > 80:
+        safe_name = safe_name[:80]
     filename = f"{ts}_{safe_name}.png"
     filepath = ss_dir / filename
 

@@ -22,6 +22,8 @@ env/
 # 测试报告 & 产物
 reports/allure-results/
 reports/allure-report/
+reports/allure-overview/
+reports/allure-overview-report/
 reports/screenshots/
 reports/self_healing/
 reports/videos/
@@ -37,6 +39,9 @@ UI_input_files/parsed_requirement.json
 
 # AI 任务暂存
 ai/.pending/*.txt
+
+# 登录态文件（含 session token，敏感）
+config/.auth_state.json
 
 # 操作系统
 .DS_Store

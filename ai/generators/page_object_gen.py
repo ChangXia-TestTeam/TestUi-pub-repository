@@ -36,9 +36,15 @@ def generate(req) -> list[Path]:
         module = _slug(page.name)
         prompt = _build_prompt(prompt_tmpl, page, req.project)
         out = llm_client.call(prompt, system="你是 Playwright Page Object 专家，只输出 Python 代码", stage=f"PageObject[{page.name}]")
+
+        # trae 模式下 llm_client.call 返回的是提示文本（非 Python 代码），跳过写入
+        if _is_trae_placeholder(out):
+            warn("page_object_gen", f"{page.name} 当前 trae 模式，跳过代码生成；请在 ai/.pending/ 中处理 prompt")
+            continue
+
         code = _extract_code(out)
-        if not code:
-            warn("page_object_gen", f"{page.name} LLM 未产出代码，跳过")
+        if not code or not _looks_like_python(code):
+            warn("page_object_gen", f"{page.name} LLM 未产出有效 Python 代码，跳过")
             continue
         path = _write_page(module, page.name, code)
         if path:
@@ -62,6 +68,21 @@ def _extract_code(out: str) -> str:
     """从 LLM 输出中提取 ```python ... ``` 代码块；若无则整段返回。"""
     m = re.search(r"```python\s*(.*?)```", out, re.S)
     return (m.group(1) if m else out).strip()
+
+
+def _is_trae_placeholder(text: str) -> bool:
+    """检测 trae 模式下的提示文本（非 LLM 产出的代码）。"""
+    return text.startswith("[llm_client/trae]")
+
+
+def _looks_like_python(code: str) -> bool:
+    """粗略检查输出是否像 Python 代码。"""
+    if not code:
+        return False
+    keywords = ("import ", "from ", "class ", "def ", "@")
+    hits = sum(1 for k in keywords if k in code)
+    # 至少命中 2 个 Python 关键字才算有效
+    return hits >= 2
 
 
 def _slug(name: str) -> str:
