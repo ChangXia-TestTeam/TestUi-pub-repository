@@ -27,12 +27,16 @@ reports/allure-overview-report/
 reports/screenshots/
 reports/self_healing/
 reports/videos/
+reports/probe_*/
 UI_output_files/test_ui_results/
 UI_output_files/bug_list/
 
-# Excel 临时锁文件
+# Office 临时锁文件
 ~$*.xlsx
 ~$*.xls
+~$*.docx
+~$*.doc
+~$*.pptx
 
 # 解析产物
 UI_input_files/parsed_requirement.json
